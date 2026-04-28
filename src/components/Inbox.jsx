@@ -1,6 +1,6 @@
-import { MessageSquare, MoreVertical, Search } from 'lucide-react';
+import { MessageSquare, MoreVertical, Search, Plus } from 'lucide-react';
 
-export function Inbox({ messages, onSelect }) {
+export function Inbox({ messages, onSelect, onAddRandom }) {
   return (
     <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       <div className="app-header">
@@ -81,6 +81,34 @@ export function Inbox({ messages, onSelect }) {
           ))}
         </div>
       </div>
+
+      {/* Floating Action Button */}
+      <button 
+        onClick={onAddRandom}
+        style={{
+          position: 'absolute',
+          bottom: '24px',
+          left: '24px',
+          width: '56px',
+          height: '56px',
+          borderRadius: '50%',
+          backgroundColor: 'var(--primary-blue)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          color: 'white',
+          boxShadow: '0 4px 14px var(--primary-blue-glow)',
+          border: 'none',
+          cursor: 'pointer',
+          zIndex: 10,
+          transition: 'transform 0.2s',
+        }}
+        onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
+        onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
+        title="Simulate new message"
+      >
+        <Plus size={28} />
+      </button>
     </div>
   );
 }
