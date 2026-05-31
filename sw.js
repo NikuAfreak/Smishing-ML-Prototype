@@ -1,10 +1,11 @@
 const CACHE_NAME = 'smishguard-v1';
+const BASE = self.location.pathname.replace(/\/sw\.js$/, '/');
 const ASSETS_TO_CACHE = [
-  '/',
-  '/index.html',
-  '/icon-192.svg',
-  '/icon-512.svg',
-  '/manifest.json',
+  BASE,
+  BASE + 'index.html',
+  BASE + 'icon-192.svg',
+  BASE + 'icon-512.svg',
+  BASE + 'manifest.json',
 ];
 
 // Install — cache core assets
