@@ -1,29 +1,81 @@
 import { useState, useEffect } from 'react';
-import { ArrowLeft, ShieldAlert, User, Loader2, AlertTriangle, ShieldCheck, ChevronDown } from 'lucide-react';
+import { ArrowLeft, ShieldAlert, User, Loader2, AlertTriangle, ShieldCheck, ChevronDown, HelpCircle, ThumbsUp, ThumbsDown, Trash2, Ban } from 'lucide-react';
 
-export function MessageDetail({ message, onBack }) {
+export function MessageDetail({ message, onBack, onMarkScanned, onDelete, onBlock, scannedResult }) {
   const [scanState, setScanState] = useState('idle'); // 'idle', 'scanning', 'warning', 'results'
   const [showResults, setShowResults] = useState(false);
+  const [userDecision, setUserDecision] = useState(null); // null, 'safe', 'malicious'
 
-  // Reset state when a new message is opened
+  // Reset state when a new message is opened — restore if already scanned, or auto-scan
   useEffect(() => {
-    setScanState('idle');
+    setUserDecision(null);
     setShowResults(false);
-  }, [message]);
+
+    if (scannedResult) {
+      setScanState('warning');
+      return;
+    }
+
+    // Check if message has a URL to auto-scan
+    const msgHasUrl = message && /(https?:\/\/[^\s]+)/.test(message.text);
+    if (msgHasUrl) {
+      setScanState('scanning');
+    } else {
+      setScanState('idle');
+    }
+  }, [message, scannedResult]);
+
+  // Run the simulated scan after entering 'scanning' state
+  useEffect(() => {
+    if (scanState !== 'scanning' || !message) return;
+    const timer = setTimeout(() => {
+      setScanState('warning');
+      // Determine status inline since getStatus depends on render-time values
+      let result;
+      if (message.isPhishing === true) result = 'malicious';
+      else if (message.isPhishing === 'suspicious') result = 'suspicious';
+      else result = 'safe';
+      onMarkScanned(message.id, result);
+    }, 2500);
+    return () => clearTimeout(timer);
+  }, [scanState, message, onMarkScanned]);
 
   if (!message) return null;
 
   const urlRegex = /(https?:\/\/[^\s]+)/g;
   const parts = message.text.split(urlRegex);
   const hasUrl = urlRegex.test(message.text);
+  
   const isMalicious = message.isPhishing === true;
+  const isSuspicious = message.isPhishing === 'suspicious';
+  const isSafe = message.isPhishing === false;
+
+  const resolvedMalicious = userDecision === 'malicious';
+  const resolvedSafe = userDecision === 'safe';
+
+  const getStatus = () => {
+    if (isSuspicious && userDecision) {
+      return userDecision === 'malicious' ? 'malicious' : 'safe';
+    }
+    if (isSuspicious) return 'suspicious';
+    if (isMalicious) return 'malicious';
+    return 'safe';
+  };
+  const status = getStatus();
   
   const handleScan = () => {
     setScanState('scanning');
-    // Simulate scan delay
     setTimeout(() => {
       setScanState('warning');
+      // Report the scan result up to App
+      onMarkScanned(message.id, status);
     }, 2500);
+  };
+
+  // When user decides on suspicious, also report up
+  const handleUserDecision = (decision) => {
+    setUserDecision(decision);
+    onMarkScanned(message.id, decision);
   };
 
   const url = extractUrl(message.text);
@@ -32,6 +84,53 @@ export function MessageDetail({ message, onBack }) {
     const match = text.match(/(https?:\/\/[^\s]+)/);
     return match ? match[0] : 'Unknown URL';
   }
+
+  const statusConfig = {
+    malicious: {
+      bg: 'rgba(239, 68, 68, 0.15)',
+      border: 'var(--malicious-red)',
+      color: 'var(--malicious-red)',
+      icon: <AlertTriangle size={24} style={{ color: 'var(--malicious-red)' }} />,
+      title: 'Malicious Link Detected',
+      badgeClass: 'badge badge-malicious',
+      aiScore: '98.4% Phishing',
+      aiBarWidth: '98.4%',
+      aiBarColor: 'var(--malicious-red)',
+      aiDesc: 'Detected patterns consistent with credential harvesting.',
+      vtScore: '14 / 89 Flagged',
+      vtDesc: '14 security vendors flagged this URL.',
+    },
+    safe: {
+      bg: 'rgba(16, 185, 129, 0.15)',
+      border: 'var(--safe-green)',
+      color: 'var(--safe-green)',
+      icon: <ShieldCheck size={24} style={{ color: 'var(--safe-green)' }} />,
+      title: 'Link Appears Safe',
+      badgeClass: 'badge badge-safe',
+      aiScore: '1.2% Risk',
+      aiBarWidth: '1.2%',
+      aiBarColor: 'var(--safe-green)',
+      aiDesc: 'No malicious patterns detected.',
+      vtScore: '0 / 89 Flagged',
+      vtDesc: 'No security vendors flagged this URL.',
+    },
+    suspicious: {
+      bg: 'rgba(245, 158, 11, 0.15)',
+      border: 'var(--warning-orange)',
+      color: 'var(--warning-orange)',
+      icon: <HelpCircle size={24} style={{ color: 'var(--warning-orange)' }} />,
+      title: 'Inconclusive — Your Input Needed',
+      badgeClass: 'badge badge-suspicious',
+      aiScore: '52.1% Uncertain',
+      aiBarWidth: '52.1%',
+      aiBarColor: 'var(--warning-orange)',
+      aiDesc: 'The AI could not confidently classify this link. Some patterns are ambiguous.',
+      vtScore: '3 / 89 Flagged',
+      vtDesc: '3 security vendors flagged this URL, which is below the definitive threshold.',
+    },
+  };
+
+  const cfg = statusConfig[status];
 
   return (
     <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
@@ -97,26 +196,11 @@ export function MessageDetail({ message, onBack }) {
           )}
         </div>
 
-        {/* Action / Warning Area */}
-        {hasUrl && scanState === 'idle' && (
-          <div className="animate-fade-in" style={{ marginTop: 'auto', paddingTop: '16px' }}>
-            <div className="glass-panel" style={{ 
-              background: 'rgba(7, 11, 25, 0.8)',
-              border: '1px solid var(--primary-blue)',
-              boxShadow: '0 0 20px rgba(14, 165, 233, 0.1)',
-              display: 'flex', flexDirection: 'column', gap: '16px'
-            }}>
-              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
-                <ShieldAlert className="text-warning-orange" style={{ color: 'var(--warning-orange)', flexShrink: 0 }} size={24} />
-                <div>
-                  <h3 className="font-semibold" style={{ marginBottom: '4px' }}>Suspicious Link Detected</h3>
-                  <p className="text-xs text-muted">We recommend scanning it before clicking.</p>
-                </div>
-              </div>
-              <button className="btn-primary" onClick={handleScan}>
-                Scan Link Security
-              </button>
-            </div>
+        {/* Scanning indicator text */}
+        {scanState === 'scanning' && (
+          <div className="animate-fade-in" style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 0' }}>
+            <ShieldAlert style={{ color: 'var(--warning-orange)', flexShrink: 0 }} size={18} />
+            <p className="text-xs text-muted">Scanning link for threats…</p>
           </div>
         )}
 
@@ -132,8 +216,8 @@ export function MessageDetail({ message, onBack }) {
                 width: '100%',
                 padding: '16px',
                 borderRadius: 'var(--radius-md)',
-                background: isMalicious ? 'rgba(239, 68, 68, 0.15)' : 'rgba(16, 185, 129, 0.15)',
-                border: `1px solid ${isMalicious ? 'var(--malicious-red)' : 'var(--safe-green)'}`,
+                background: cfg.bg,
+                border: `1px solid ${cfg.border}`,
                 display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                 cursor: 'pointer',
                 color: 'var(--text-main)',
@@ -141,16 +225,16 @@ export function MessageDetail({ message, onBack }) {
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                {isMalicious ? (
-                  <AlertTriangle size={24} style={{ color: 'var(--malicious-red)' }} />
-                ) : (
-                  <ShieldCheck size={24} style={{ color: 'var(--safe-green)' }} />
-                )}
+                {cfg.icon}
                 <div style={{ textAlign: 'left' }}>
-                  <h3 className="font-semibold" style={{ color: isMalicious ? 'var(--malicious-red)' : 'var(--safe-green)' }}>
-                    {isMalicious ? 'Malicious Link Detected' : 'Link Appears Safe'}
+                  <h3 className="font-semibold" style={{ color: cfg.color }}>
+                    {cfg.title}
                   </h3>
-                  <p className="text-xs text-muted">Click to view full security report</p>
+                  <p className="text-xs text-muted">
+                    {status === 'suspicious' && !userDecision
+                      ? 'Tap to review and provide your judgment'
+                      : 'Click to view full security report'}
+                  </p>
                 </div>
               </div>
               <ChevronDown size={20} style={{ 
@@ -170,40 +254,93 @@ export function MessageDetail({ message, onBack }) {
                   <span style={{ fontSize: '0.875rem', wordBreak: 'break-all' }}>{url}</span>
                 </div>
 
-                {/* ML Analysis Engine */}
+                {/* AI Analysis Engine */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', borderTop: '1px solid var(--border-color)', paddingTop: '12px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span className="text-sm font-semibold">Local ML Engine</span>
-                    <span className={isMalicious ? 'badge badge-malicious' : 'badge badge-safe'}>
-                      {isMalicious ? '98.4% Phishing' : '1.2% Risk'}
+                    <span className="text-sm font-semibold">AI Analysis</span>
+                    <span className={cfg.badgeClass}>
+                      {cfg.aiScore}
                     </span>
                   </div>
                   <div style={{ width: '100%', height: '6px', background: 'var(--bg-dark)', borderRadius: '3px', overflow: 'hidden' }}>
                     <div style={{ 
-                      width: isMalicious ? '98.4%' : '1.2%', 
+                      width: cfg.aiBarWidth, 
                       height: '100%', 
-                      background: isMalicious ? 'var(--malicious-red)' : 'var(--safe-green)' 
+                      background: cfg.aiBarColor 
                     }}></div>
                   </div>
-                  <p className="text-xs text-muted">
-                    {isMalicious 
-                      ? 'Detected patterns consistent with credential harvesting.'
-                      : 'No malicious patterns detected.'}
-                  </p>
+                  <p className="text-xs text-muted">{cfg.aiDesc}</p>
                 </div>
 
                 {/* VirusTotal API integration */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', borderTop: '1px solid var(--border-color)', paddingTop: '12px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <span className="text-sm font-semibold">VirusTotal Consensus</span>
-                    <span className={isMalicious ? 'badge badge-malicious' : 'badge badge-safe'}>
-                      {isMalicious ? '14 / 89 Flagged' : '0 / 89 Flagged'}
+                    <span className={cfg.badgeClass}>
+                      {cfg.vtScore}
                     </span>
                   </div>
-                  <p className="text-xs text-muted">
-                    {isMalicious ? '14 security vendors flagged this URL.' : 'No security vendors flagged this URL.'}
-                  </p>
+                  <p className="text-xs text-muted">{cfg.vtDesc}</p>
                 </div>
+
+                {/* User Decision Buttons for Suspicious */}
+                {status === 'suspicious' && !userDecision && (
+                  <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '16px' }}>
+                    <p className="text-sm font-semibold" style={{ marginBottom: '4px' }}>What do you think?</p>
+                    <p className="text-xs text-muted" style={{ marginBottom: '14px' }}>
+                      Our AI couldn't reach a confident verdict. Please help us by classifying this link.
+                    </p>
+                    <div style={{ display: 'flex', gap: '10px' }}>
+                      <button 
+                        className="suspicious-action-btn suspicious-action-safe"
+                        onClick={() => handleUserDecision('safe')}
+                      >
+                        <ThumbsUp size={16} />
+                        <span>Mark as Safe</span>
+                      </button>
+                      <button 
+                        className="suspicious-action-btn suspicious-action-malicious"
+                        onClick={() => handleUserDecision('malicious')}
+                      >
+                        <ThumbsDown size={16} />
+                        <span>Mark as Malicious</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* User Decision Confirmation */}
+                {status !== 'suspicious' && isSuspicious && userDecision && (
+                  <div style={{ 
+                    borderTop: '1px solid var(--border-color)', paddingTop: '12px',
+                    display: 'flex', alignItems: 'center', gap: '8px'
+                  }}>
+                    {resolvedSafe ? <ShieldCheck size={16} style={{ color: 'var(--safe-green)' }} /> : <AlertTriangle size={16} style={{ color: 'var(--malicious-red)' }} />}
+                    <p className="text-xs" style={{ color: resolvedSafe ? 'var(--safe-green)' : 'var(--malicious-red)' }}>
+                      You classified this link as <strong>{userDecision}</strong>. Thank you for your input.
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Delete / Block actions for malicious */}
+            {(status === 'malicious') && (
+              <div className="animate-fade-in" style={{ display: 'flex', gap: '10px', marginTop: '4px' }}>
+                <button 
+                  className="detail-action-btn detail-action-delete"
+                  onClick={() => onDelete(message.id)}
+                >
+                  <Trash2 size={16} />
+                  <span>Delete Message</span>
+                </button>
+                <button 
+                  className="detail-action-btn detail-action-block"
+                  onClick={() => onBlock(message)}
+                >
+                  <Ban size={16} />
+                  <span>Block Sender</span>
+                </button>
               </div>
             )}
           </div>
