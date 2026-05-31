@@ -17,7 +17,9 @@ export function AnalyticsPage() {
   const recentScans = [
     { url: 'usps-tracking-portal-info.com', status: 'malicious', time: '2 min ago', vendors: '14/89' },
     { url: 'google.com', status: 'safe', time: '5 min ago', vendors: '0/89' },
+    { url: 'dhl-tracking-info.com/status', status: 'suspicious', time: '7 min ago', vendors: '3/89' },
     { url: 'secure-bank-login-update.net', status: 'malicious', time: '12 min ago', vendors: '23/89' },
+    { url: 'company-portal-security.net/policy', status: 'suspicious', time: '15 min ago', vendors: '1/89' },
     { url: 'wikipedia.org', status: 'safe', time: '18 min ago', vendors: '0/89' },
     { url: 'netflix-billing-update-center.com', status: 'malicious', time: '25 min ago', vendors: '9/89' },
     { url: 'amazon.com', status: 'safe', time: '31 min ago', vendors: '0/89' },
@@ -119,24 +121,50 @@ export function AnalyticsPage() {
             <span className="font-semibold text-sm">Recent Scans</span>
             <span className="text-xs text-muted"><Clock size={12} style={{ verticalAlign: 'middle', marginRight: '4px' }} />Live Feed</span>
           </div>
-          {recentScans.map((scan, i) => (
-            <div key={i} className="analytics-scan-row">
-              <div style={{
-                width: '8px', height: '8px', borderRadius: '50%', flexShrink: 0,
-                background: scan.status === 'malicious' ? 'var(--malicious-red)' : 'var(--safe-green)',
-                boxShadow: `0 0 8px ${scan.status === 'malicious' ? 'rgba(239,68,68,0.5)' : 'rgba(16,185,129,0.5)'}`
-              }}></div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <p className="text-xs font-medium" style={{
-                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
-                }}>{scan.url}</p>
-                <p className="text-xs text-muted">{scan.vendors} vendors • {scan.time}</p>
+          {recentScans.map((scan, i) => {
+            const getStatusColor = () => {
+              if (scan.status === 'malicious') return 'var(--malicious-red)';
+              if (scan.status === 'suspicious') return 'var(--warning-orange)';
+              return 'var(--safe-green)';
+            };
+
+            const getStatusGlow = () => {
+              if (scan.status === 'malicious') return 'rgba(239, 68, 68, 0.5)';
+              if (scan.status === 'suspicious') return 'rgba(245, 158, 11, 0.5)';
+              return 'rgba(16, 185, 129, 0.5)';
+            };
+
+            const getBadgeClass = () => {
+              if (scan.status === 'malicious') return 'badge-malicious';
+              if (scan.status === 'suspicious') return 'badge-suspicious';
+              return 'badge-safe';
+            };
+
+            const getBadgeText = () => {
+              if (scan.status === 'malicious') return 'MALICIOUS';
+              if (scan.status === 'suspicious') return 'SUSPICIOUS';
+              return 'SAFE';
+            };
+
+            return (
+              <div key={i} className="analytics-scan-row">
+                <div style={{
+                  width: '8px', height: '8px', borderRadius: '50%', flexShrink: 0,
+                  background: getStatusColor(),
+                  boxShadow: `0 0 8px ${getStatusGlow()}`
+                }}></div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p className="text-xs font-medium" style={{
+                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
+                  }}>{scan.url}</p>
+                  <p className="text-xs text-muted">{scan.vendors} vendors • {scan.time}</p>
+                </div>
+                <span className={`badge ${getBadgeClass()}`} style={{ fontSize: '0.6rem' }}>
+                  {getBadgeText()}
+                </span>
               </div>
-              <span className={`badge ${scan.status === 'malicious' ? 'badge-malicious' : 'badge-safe'}`} style={{ fontSize: '0.6rem' }}>
-                {scan.status === 'malicious' ? 'THREAT' : 'SAFE'}
-              </span>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
       </div>
