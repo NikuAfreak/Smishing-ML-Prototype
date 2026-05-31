@@ -2,7 +2,7 @@
   "name": "SmishGuard",
   "short_name": "SmishGuard",
   "description": "AI-powered SMS phishing detection. Scan links in text messages for threats using machine learning and VirusTotal.",
-  "start_url": "/",
+  "start_url": "/Smishing-ML/",
   "display": "standalone",
   "background_color": "#070B19",
   "theme_color": "#0ea5e9",
